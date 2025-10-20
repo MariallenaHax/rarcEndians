@@ -61,6 +61,12 @@ struct RarcFileNode {
 #pragma pack(pop)
 
 void ConvertRarcHeader(RarcHeader& hdr) {
+    std::cout <<hdr.magic;
+    if (hdr.magic == 0x43524152)
+    isLE = false;
+else if (hdr.magic == 0x52415243)
+    isLE = true;
+else return;
     hdr.magic             = Swap32(hdr.magic);
     hdr.fileSize          = Swap32(hdr.fileSize);
     hdr.dataHeaderOffset  = Swap32(hdr.dataHeaderOffset);
@@ -131,20 +137,35 @@ if (argc < 2) {
     in.read(reinterpret_cast<char*>(&hdr), sizeof(hdr));
     ConvertRarcHeader(hdr);
     out.write(reinterpret_cast<char*>(&hdr), sizeof(hdr));
-
-    in.seekg(hdr.dataHeaderOffset);
+if (isLE == false) in.seekg(hdr.dataHeaderOffset);
+else if (isLE == true) in.seekg(Swap32(hdr.dataHeaderOffset));
+else return 1;
     RarcDataHeader dhdr;
     in.read(reinterpret_cast<char*>(&dhdr), sizeof(dhdr));
     ConvertRarcDataHeader(dhdr);
     out.write(reinterpret_cast<char*>(&dhdr), sizeof(dhdr));
-
-    in.seekg(dhdr.dirNodeOffset + 0x20);
-    std::vector<RarcDirectoryNode> dirNodes(dhdr.dirNodeCount);
+if (isLE == false) in.seekg(dhdr.dirNodeOffset + 0x20);
+else in.seekg(Swap32(dhdr.dirNodeOffset) + 0x20);
+if (isLE == true)
+{
+    std::vector<RarcDirectoryNode> dirNodes(Swap32(dhdr.dirNodeCount));
     for (auto& node : dirNodes) {
         in.read(reinterpret_cast<char*>(&node), sizeof(node));
         ConvertDirectoryNode(node);
         out.write(reinterpret_cast<char*>(&node), sizeof(node));
     }
+}
+else
+{
+        std::vector<RarcDirectoryNode> dirNodes(dhdr.dirNodeCount);
+    for (auto& node : dirNodes) {
+        in.read(reinterpret_cast<char*>(&node), sizeof(node));
+        ConvertDirectoryNode(node);
+        out.write(reinterpret_cast<char*>(&node), sizeof(node));
+    }
+}
+if (isLE == false)
+{
     in.seekg(dhdr.fileNodeOffset + 0x20);
     std::vector<RarcFileNode> fileNodes(dhdr.fileNodeCount);
     for (auto& node : fileNodes) {
@@ -152,6 +173,17 @@ if (argc < 2) {
         ConvertFileNode(node);
         out.write(reinterpret_cast<char*>(&node), sizeof(node));
     }
+}
+else
+{
+    in.seekg(Swap16(dhdr.fileNodeOffset) + 0x20);
+    std::vector<RarcFileNode> fileNodes(Swap16(dhdr.fileNodeCount));
+    for (auto& node : fileNodes) {
+        in.read(reinterpret_cast<char*>(&node), sizeof(node));
+        ConvertFileNode(node);
+        out.write(reinterpret_cast<char*>(&node), sizeof(node));
+    }
+}
 std::streampos currentPos = in.tellg();
 
 in.seekg(0, std::ios::end);
