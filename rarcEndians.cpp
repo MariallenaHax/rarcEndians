@@ -61,12 +61,6 @@ struct RarcFileNode {
 #pragma pack(pop)
 
 void ConvertRarcHeader(RarcHeader& hdr) {
-    std::cout <<hdr.magic;
-    if (hdr.magic == 0x43524152)
-    isLE = false;
-else if (hdr.magic == 0x52415243)
-    isLE = true;
-else return;
     hdr.magic             = Swap32(hdr.magic);
     hdr.fileSize          = Swap32(hdr.fileSize);
     hdr.dataHeaderOffset  = Swap32(hdr.dataHeaderOffset);
@@ -110,6 +104,10 @@ int main(int argc, char* argv[]) {
 
     std::string inputPath  = argv[1];
     std::string  outputPath;
+    if (!argv[1]) {
+        std::cerr << "Usage: rarcEndians.exe <input.arc> (output.arc)\n";
+        return 1;
+    }
     if (!argv[2])
     {
 outputPath = inputPath + "_out.arc";
@@ -118,28 +116,40 @@ outputPath = inputPath + "_out.arc";
 {
 outputPath = argv[2];
 }
-if (argc < 2) {
-        std::cerr << "Usage: rarcEndians.exe <input.arc> (output.arc)\n";
-        return 1;
-    }
     std::ifstream in(inputPath, std::ios::binary);
     std::ofstream out(outputPath, std::ios::binary);
     if (!in) {
-        std::cerr << "OOPS!: " << inputPath << "\n";
+        std::cerr << "OOPS!: " << "\n";
         return 1;
     }
     if (!out) {
-        std::cerr << "OOPS...: " << outputPath << "\n";
+        std::cerr << "OOPS...: " << "\n";
         return 1;
     }
-
+in.seekg(0, std::ios::beg);
+char ch[4];
+in.read(ch, 4);
+std::string magicStr1(ch, 4);
+if (magicStr1 == "RARC")
+{
+isLE = false;
+}
+else if (magicStr1 == "CRAR")
+{
+isLE = true;
+}
+else
+{
+    std::cerr << "THIS IS NOT RARC FILE."<< "\n";
+        return 1;
+}
+in.seekg(0, std::ios::beg);
     RarcHeader hdr;
     in.read(reinterpret_cast<char*>(&hdr), sizeof(hdr));
     ConvertRarcHeader(hdr);
     out.write(reinterpret_cast<char*>(&hdr), sizeof(hdr));
 if (isLE == false) in.seekg(hdr.dataHeaderOffset);
 else if (isLE == true) in.seekg(Swap32(hdr.dataHeaderOffset));
-else return 1;
     RarcDataHeader dhdr;
     in.read(reinterpret_cast<char*>(&dhdr), sizeof(dhdr));
     ConvertRarcDataHeader(dhdr);
@@ -176,8 +186,8 @@ if (isLE == false)
 }
 else
 {
-    in.seekg(Swap16(dhdr.fileNodeOffset) + 0x20);
-    std::vector<RarcFileNode> fileNodes(Swap16(dhdr.fileNodeCount));
+    in.seekg(Swap32(dhdr.fileNodeOffset) + 0x20);
+    std::vector<RarcFileNode> fileNodes(Swap32(dhdr.fileNodeCount));
     for (auto& node : fileNodes) {
         in.read(reinterpret_cast<char*>(&node), sizeof(node));
         ConvertFileNode(node);
