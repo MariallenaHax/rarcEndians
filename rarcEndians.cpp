@@ -164,6 +164,12 @@ if (isLE == true)
         ConvertDirectoryNode(node);
         out.write(reinterpret_cast<char*>(&node), sizeof(node));
     }
+    if (Swap32(dhdr.dirNodeCount) == 0x1)
+    {
+        char magic[16];
+        in.read(magic, 16);
+        out.write(reinterpret_cast<char*>(&magic), sizeof(magic));
+    }
 }
 else
 {
@@ -172,6 +178,12 @@ else
         in.read(reinterpret_cast<char*>(&node), sizeof(node));
         ConvertDirectoryNode(node);
         out.write(reinterpret_cast<char*>(&node), sizeof(node));
+    }
+    if (dhdr.dirNodeCount == 0x1)
+    {
+        char magic[16];
+        in.read(magic, 16);
+        out.write(reinterpret_cast<char*>(&magic), sizeof(magic));
     }
 }
 if (isLE == false)
